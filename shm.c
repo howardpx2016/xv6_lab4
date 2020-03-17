@@ -32,7 +32,7 @@ int shm_open(int id, char **pointer) {
 //you write this
 //1. Look through the shm_table to see if the id we are opening already exists.
 int i;
-int id_exists;
+int id_exists = 0; //previously just "int id_exists"
 
 struct proc * curproc = myproc();
 
