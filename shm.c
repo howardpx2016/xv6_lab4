@@ -36,7 +36,7 @@ int id_exists;
 
 struct proc * curproc = myproc();
 
-acquire(&(shm_table.lock));
+acquire(&(shm_table.lock)); //lock memory
 
 for (i = 0; i < 64; i++) {
     if (shm_table.shm_pages[i].id == id) {
@@ -45,9 +45,9 @@ for (i = 0; i < 64; i++) {
     }
 }
 //case 1: already exists. find physical address of page in table, map it to available page in v address space
-if(id_exists == 1) {
-    int p_addr = V2P(shm_table.shm_pages[i].frame); //V2P the page address
-    mappages(curproc->pgdir, (void*)PGROUNDUP(curproc->sz), PGSIZE, p_addr, PTE_W|PTE_U);
+if(id_exists) {
+    //int p_addr = V2P(shm_table.shm_pages[i].frame); //V2P the page address
+    mappages(curproc->pgdir, (void*)PGROUNDUP(curproc->sz), PGSIZE, V2P(shm_table.shm_pages[i].frame), PTE_W|PTE_U);
     
     shm_table.shm_pages[i].refcnt++; // increment reference counter of page in table
     *pointer = (char*)PGROUNDUP(curproc->sz);
@@ -68,25 +68,41 @@ else {
             //reference count = 1
             shm_table.shm_pages[i].refcnt = 1;
 
-            int p_addr = V2P(shm_table.shm_pages[i].frame); //V2P the page address
-            mappages(curproc->pgdir, (void*)PGROUNDUP(curproc->sz), PGSIZE, p_addr, PTE_W|PTE_U);
+            //int p_addr = V2P(shm_table.shm_pages[i].frame); //V2P the page address
+            mappages(curproc->pgdir, (void*)PGROUNDUP(curproc->sz), PGSIZE, V2P(shm_table.shm_pages[i].frame),  PTE_W|PTE_U);
             *pointer = (char*)PGROUNDUP(curproc->sz);
             curproc->sz = PGROUNDUP(curproc->sz) + PGSIZE;
             break;
         }
     }
 }
-release(&(shm_table.lock));
+release(&(shm_table.lock)); //unlock memory
 
 return 0; //added to remove compiler warning -- you should decide what to return
 }
 
 
 int shm_close(int id) {
-//you write this too!
+    //you write this too!
+    int i = 0;
+    acquire(&(shm_table.lock)); //lock memory
 
-
-
+    //look for memory segment
+    for (i = 0; i < 64; i++) {
+        //if segement matches and ref count is >=1, decrement
+        if (shm_table.shm_pages[i].id == id) {
+            if (shm_table.shm_pages[i].refcnt >= 1) {
+                shm_table.shm_pages[i].refcnt--;
+            }
+        }
+        //if ref is 0 or decremented to 0, erase everything else
+        if (shm_table.shm_pages[i].refcnt == 0) {
+            shm_table.shm_pages[i].id = 0;
+            shm_table.shm_pages[i].frame = 0;
+            shm_table.shm_pages[i].refcnt = 0;
+        }
+    }
+    release(&(shm_table.lock)); //unlock memory
 
 return 0; //added to remove compiler warning -- you should decide what to return
 }
